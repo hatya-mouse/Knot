@@ -11,6 +11,7 @@ struct KnotRenderer: View {
     let components: [String: A2UIComponent]
     let thread: KnotThread
     let rootID: String
+    let onComponentHover: (String?) -> Void
 
     var body: some View {
         renderComponent(id: rootID)
@@ -46,11 +47,13 @@ struct KnotRenderer: View {
                                 renderComponent(id: child)
                             }
                         }
+                        .hoverTooltip(closure: onComponentHover, "Action: \(comp.id)")
                     case "TextField":
                         TextField(
                             comp.label ?? "",
                             text: self.resolveBinding(comp.value, default: "")
                         )
+                        .hoverTooltip(closure: onComponentHover, "TextField: \(comp.id)")
                     case "CheckBox":
                         Toggle(
                             comp.label ?? "",
@@ -60,6 +63,7 @@ struct KnotRenderer: View {
                             )
                         )
                         .toggleStyle(.checkbox)
+                        .hoverTooltip(closure: onComponentHover, "CheckBox: \(comp.id)")
                     case "Slider":
                         VStack(alignment: .leading) {
                             if let label = comp.label { Text(label) }
@@ -71,6 +75,7 @@ struct KnotRenderer: View {
                                 in: (comp.min ?? 0)...(comp.max ?? 100)
                             )
                         }
+                        .hoverTooltip(closure: onComponentHover, "Slider: \(comp.id)")
                     case "Card":
                         VStack(alignment: .leading, spacing: 12) {
                             if let child = comp.child {
@@ -102,7 +107,8 @@ struct KnotRenderer: View {
             KnotRenderer(
                 components: components,
                 thread: thread,
-                rootID: childID
+                rootID: childID,
+                onComponentHover: onComponentHover
             )
             if divider {
                 Divider().padding(.vertical, 4)
@@ -148,6 +154,14 @@ struct CardStyle: ViewModifier {
             )
         } else {
             content
+        }
+    }
+}
+
+private extension View {
+    func hoverTooltip(closure: @escaping (String?) -> Void, _ tooltip: String) -> some View {
+        onHover { isHovered in
+            closure(isHovered ? tooltip : nil)
         }
     }
 }

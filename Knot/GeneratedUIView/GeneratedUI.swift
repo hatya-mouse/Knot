@@ -20,6 +20,9 @@ struct GeneratedUI: View {
     @State private var textOffset: CGFloat = 0
     @State private var textOpacity: Double = 0.0
 
+    // Component hover tooltip
+    @State private var hoverTooltip: String?
+
     init(thread: KnotThread) {
         self.thread = thread
         self.communicator = MCPAICommunicator(thread: thread)
@@ -27,12 +30,34 @@ struct GeneratedUI: View {
 
     var body: some View {
         VStack {
-            ScrollView(.vertical, showsIndicators: false) {
-                KnotRenderer(
-                    components: communicator.thread.components,
-                    thread: thread,
-                    rootID: "root"
-                )
+            ZStack(alignment: .bottom) {
+                ScrollView(.vertical, showsIndicators: false) {
+                    KnotRenderer(
+                        components: communicator.thread.components,
+                        thread: thread,
+                        rootID: "root",
+                        onComponentHover: { tooltip in
+                            withAnimation(.easeOut(duration: 0.1)) {
+                                self.hoverTooltip = tooltip
+                            }
+                        }
+                    )
+                }
+
+                if let tooltip = hoverTooltip {
+                    Text(tooltip)
+                        .font(
+                            .system(
+                                size: 11,
+                                weight: .medium,
+                                design: .monospaced
+                            )
+                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .glassEffect()
+                        .transition(.opacity)
+                }
             }
 
             HStack {
