@@ -25,7 +25,12 @@ enum ValueOrBinding: Codable, Hashable {
         else if let literalVal = try? A2UIValue(from: decoder) {
             self = .literal(literalVal)
         } else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid value format"))
+            throw DecodingError.dataCorrupted(
+                .init(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Invalid value format"
+                )
+            )
         }
     }
 
@@ -55,7 +60,10 @@ enum A2UIValue: Codable, Hashable {
         } else if let s = try? container.decode(String.self) {
             self = .string(s)
         } else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "A2UIValue: Unsupported type")
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "A2UIValue: Unsupported type"
+            )
         }
     }
 

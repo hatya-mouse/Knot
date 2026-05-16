@@ -37,7 +37,9 @@ struct KnotRenderer: View {
                     case "Divider":
                         Divider()
                     case "Text":
-                        Text(self.resolveValue(comp.text, default: "" as String))
+                        Text(
+                            self.resolveValue(comp.text, default: "" as String)
+                        )
                     case "Button":
                         Button(action: {}) {
                             if let child = comp.child {
@@ -45,23 +47,47 @@ struct KnotRenderer: View {
                             }
                         }
                     case "TextField":
-                        TextField(comp.label ?? "", text: self.resolveBinding(comp.value, default: ""))
+                        TextField(
+                            comp.label ?? "",
+                            text: self.resolveBinding(comp.value, default: "")
+                        )
                     case "CheckBox":
-                        Toggle(comp.label ?? "", isOn: self.resolveBinding(comp.value, default: false))
-                            .toggleStyle(.checkbox)
+                        Toggle(
+                            comp.label ?? "",
+                            isOn: self.resolveBinding(
+                                comp.value,
+                                default: false
+                            )
+                        )
+                        .toggleStyle(.checkbox)
                     case "Slider":
                         VStack(alignment: .leading) {
                             if let label = comp.label { Text(label) }
-                            Slider(value: self.resolveBinding(comp.value, default: 0), in: (comp.min ?? 0)...(comp.max ?? 100))
+                            Slider(
+                                value: self.resolveBinding(
+                                    comp.value,
+                                    default: 0
+                                ),
+                                in: (comp.min ?? 0)...(comp.max ?? 100)
+                            )
                         }
                     case "Card":
                         VStack(alignment: .leading, spacing: 12) {
-                            childViews(ids: comp.children ?? [])
+                            if let child = comp.child {
+                                childViews(ids: [child])
+                            }
                         }
                         .padding()
-                        .background(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                        .background(
+                            Color(NSColor.windowBackgroundColor).opacity(0.5)
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.secondary.opacity(0.2), lineWidth: 1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12).stroke(
+                                Color.secondary.opacity(0.2),
+                                lineWidth: 1
+                            )
+                        )
                     default:
                         Text("Unknown: \(comp.component)")
                     }
@@ -73,14 +99,21 @@ struct KnotRenderer: View {
     @ViewBuilder
     private func childViews(ids: [String], divider: Bool = false) -> some View {
         ForEach(ids, id: \.self) { childID in
-            KnotRenderer(components: components, thread: thread, rootID: childID)
+            KnotRenderer(
+                components: components,
+                thread: thread,
+                rootID: childID
+            )
             if divider {
                 Divider().padding(.vertical, 4)
             }
         }
     }
 
-    private func resolveValue<T>(_ value: ValueOrBinding?, default defaultValue: T) -> T {
+    private func resolveValue<T>(
+        _ value: ValueOrBinding?,
+        default defaultValue: T
+    ) -> T {
         switch value {
         case nil:
             return defaultValue
@@ -91,7 +124,10 @@ struct KnotRenderer: View {
         }
     }
 
-    private func resolveBinding<T>(_ value: ValueOrBinding?, default defaultValue: T) -> Binding<T> {
+    private func resolveBinding<T>(
+        _ value: ValueOrBinding?,
+        default defaultValue: T
+    ) -> Binding<T> {
         switch value {
         case nil:
             return .constant(defaultValue)
@@ -107,7 +143,9 @@ struct CardStyle: ViewModifier {
     let isCard: Bool
     func body(content: Content) -> some View {
         if isCard {
-            content.padding(8).background(RoundedRectangle(cornerRadius: 8).stroke(.secondary))
+            content.padding(8).background(
+                RoundedRectangle(cornerRadius: 8).stroke(.secondary)
+            )
         } else {
             content
         }

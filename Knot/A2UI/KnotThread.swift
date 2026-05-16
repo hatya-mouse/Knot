@@ -28,8 +28,14 @@ import SwiftUI
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decode(UUID.self, forKey: .id)
         self.title = try container.decode(String.self, forKey: .title)
-        self.components = try container.decode([String: A2UIComponent].self, forKey: .components)
-        self.states = try container.decode([String: A2UIValue].self, forKey: .states)
+        self.components = try container.decode(
+            [String: A2UIComponent].self,
+            forKey: .components
+        )
+        self.states = try container.decode(
+            [String: A2UIValue].self,
+            forKey: .states
+        )
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
 
@@ -54,7 +60,11 @@ import SwiftUI
 
     // MARK: Class Methods
 
-    init(title: String, components: [String: A2UIComponent], states: [String: A2UIValue]) {
+    init(
+        title: String,
+        components: [String: A2UIComponent],
+        states: [String: A2UIValue]
+    ) {
         self.title = title
         self.components = components
         self.states = states

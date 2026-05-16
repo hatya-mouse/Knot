@@ -7,7 +7,7 @@
 
 class LLMError: Error {
     let localizedDescription: String
-    
+
     init(_ description: String) {
         self.localizedDescription = description
     }

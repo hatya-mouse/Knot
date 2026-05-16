@@ -12,7 +12,6 @@ let geminiProviderKey = "com.hatya.Knot.gemini_api_key"
 let claudeProviderKey = "com.hatya.Knot.claude_api_key"
 
 struct SettingsView: View {
-    @State private var mcpConfigs: [MCPServerConfig] = []
     @State private var isShowingAddMCPServer: Bool = false
 
     @State private var openAIKey: String = ""
@@ -27,7 +26,7 @@ struct SettingsView: View {
         Form {
             // MARK: MCP Servers
             Section("MCP Servers") {
-                ForEach(mcpConfigs) { config in
+                ForEach(MCPServerManager.shared.configs) { config in
                     HStack {
                         VStack(alignment: .leading) {
                             Text(config.name).font(.headline)
@@ -37,7 +36,7 @@ struct SettingsView: View {
                         }
                         Spacer()
                         Button(role: .destructive) {
-                            deleteMCPConfig(config)
+                            MCPServerManager.shared.removeConfig(config)
                         } label: {
                             Image(systemName: "trash")
                         }
@@ -86,7 +85,7 @@ struct SettingsView: View {
         .onAppear(perform: checkAllKeys)
         .sheet(isPresented: $isShowingAddMCPServer) {
             AddServerView { newConfig in
-                mcpConfigs.append(newConfig)
+                MCPServerManager.shared.addConfig(newConfig)
                 isShowingAddMCPServer = false
             }
         }
@@ -134,12 +133,6 @@ struct SettingsView: View {
     }
 
     // MARK: -- HELPER FUNCTIONS
-
-    private func deleteMCPConfig(_ config: MCPServerConfig) {
-        if let index = mcpConfigs.firstIndex(where: { $0.id == config.id }) {
-            mcpConfigs.remove(at: index)
-        }
-    }
 
     private func saveAPIKey(providerKey: String, apiKey: String) {
         guard !apiKey.isEmpty else { return }

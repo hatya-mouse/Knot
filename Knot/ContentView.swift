@@ -15,7 +15,8 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(KnotThreadManager.shared.threads, selection: $selectedThreadID) { thread in
+            List(KnotThreadManager.shared.threads, selection: $selectedThreadID)
+            { thread in
                 threadRow(thread: thread)
             }
             .navigationTitle("Threads")
@@ -29,22 +30,31 @@ struct ContentView: View {
             }
         } detail: {
             if let threadID = selectedThreadID,
-               let thread = KnotThreadManager.shared.threads.first(where: { $0.id == threadID }) {
+                let thread = KnotThreadManager.shared.threads.first(where: {
+                    $0.id == threadID
+                })
+            {
                 GeneratedUI(thread: thread)
                     .id(thread.id)
             } else {
-                ContentUnavailableView("Select a Thread", systemImage: "list.bullet", description: Text("Start by creating a new thread"))
+                ContentUnavailableView(
+                    "Select a Thread",
+                    systemImage: "list.bullet",
+                    description: Text("Start by creating a new thread")
+                )
             }
         }
         .alert("Delete Thread", isPresented: $isDeleteAlertPresented) {
-            Button(role: .cancel) { }
+            Button(role: .cancel) {}
             Button("Delete", role: .destructive) {
                 if let thread = threadToDelete {
                     deleteThread(thread: thread)
                 }
             }
         } message: {
-            Text("Are you sure you want to delete the thread \"\(threadToDelete?.title ?? "")\"?")
+            Text(
+                "Are you sure you want to delete the thread \"\(threadToDelete?.title ?? "")\"?"
+            )
         }
     }
 

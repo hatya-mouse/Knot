@@ -9,7 +9,7 @@ import Combine
 import MCP
 import SwiftUI
 
-@Observable final class MCPAICommunicator {
+@Observable class MCPAICommunicator {
     /// The main MCP client.
     private var client = Client(
         name: "Knot",
@@ -18,7 +18,7 @@ import SwiftUI
     )
     /// The LLM provider to generate the UI.
     var provider: LLMProvider? {
-        GeminiProvider(apiKey: apiKey)
+        GeminiProvider()
     }
 
     /// Array of tools to show on the UI.
@@ -33,10 +33,16 @@ import SwiftUI
     var isGenerating: Bool = false
     /// The generated A2UI components.
     var thread: KnotThread
+    /// Currently active MCP server processes.
+    var serverProcesses: [Process] = []
 
     /// Initializes a new instance of MCPAICommunicator from a thread.
     init(thread: KnotThread) {
         self.thread = thread
+
+        Task {
+            await self.connectAll()
+        }
     }
 
     /// Request the UI to the LLM provider.
@@ -46,15 +52,27 @@ import SwiftUI
         isGenerating = true
 
         let toolsContext = tools.map { tool in
-                "Tool: \(tool.name), Description: \(tool.description ?? ""), Args: \(tool.inputSchema)"
-            }.joined(separator: "\n")
+            "Tool: \(tool.name), Description: \(tool.description ?? ""), Args: \(tool.inputSchema)"
+        }.joined(separator: "\n")
         let systemPrompt = """
             1. Generate a UI written in JSON with the specific A2UI format based on the user's prompt.
-            2. The root UI must be one of Panel, Column or Row, and must be named "root".
+            2. The root UI must be either Card, Column or Row, and must be named "root".
             3. For Buttons, use the same name as the name of the tools.
             4. For sliders and text fields, use the same name as the tool arguments.
             5. Do not change the name of the text.
-            
+
+            Specific Constraints:
+            - Column and Row must have "children" property. Do not use "child" property for them, even if there is only one child.
+            - Card must have "child" property.
+            - Button has to have "child" property which specifies the ID of its label content, not "text" and so on.
+            - For Slider, CheckBox and TextField, use "value" property to specify the literal value or data binding.
+            - Note that you need to use data binding if you want the user to be able to change its value. If you use literal value, the user WILL NOT be able to change the value.
+            - You can create data binding by just specifying the custom path to the value. It does not need to be declared somewhere, but instead you can just write it and it'll be fine.
+            - "text" and "label" is just for displaying purpose. Use "id", which must be same as the tool's ID, to distinguish between components.
+
+            [Current UI]
+            \(thread.components)
+
             [Available Tools]
             \(toolsContext)
             """
@@ -64,7 +82,6 @@ import SwiftUI
                 prompt: userPrompt,
                 systemPrompt: systemPrompt
             )
-            //            let result = dummyData()
 
             let components = try JSONDecoder().decode(
                 [A2UIComponent].self,
@@ -87,8 +104,8 @@ import SwiftUI
                     variant: nil,
                     min: nil,
                     max: nil,
-                    children: ["message"],
-                    child: nil
+                    children: nil,
+                    child: "message"
                 ),
                 "message": A2UIComponent(
                     id: "message",
@@ -110,15 +127,29 @@ import SwiftUI
     }
 
     /// Connects to the stdio transport and fetches the tools.
-    func connect() async {
-        // Use the stdio transport
-        let transport = StdioTransport()
+    func connectAll() async {
+        // Get all the servers available
+        self.tools.removeAll()
+        self.serverProcesses.removeAll()
+        for config in MCPServerManager.shared.configs {
+            await connectServer(command: config.command)
+        }
+    }
+
+    private func connectServer(command: String) async {
         do {
+            // Launch the MCP server and get the transport
+            let (transport, process) = try await connectToMCPServer(
+                input: command
+            )
+            self.serverProcesses.append(process)
+            // Try to connect to the transport
             _ = try await client.connect(transport: transport)
             self.isConnected = true
+
             // Get the tools as soon as the client is connected
             let (tools, _) = try await client.listTools()
-            self.tools = tools
+            self.tools.append(contentsOf: tools)
         } catch {
             print("Connection Error: \(error)")
         }
