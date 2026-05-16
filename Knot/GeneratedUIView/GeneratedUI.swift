@@ -29,8 +29,8 @@ struct GeneratedUI: View {
     }
 
     var body: some View {
-        VStack {
-            ZStack(alignment: .bottom) {
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
                 ScrollView(.vertical, showsIndicators: false) {
                     KnotRenderer(
                         components: communicator.thread.components,
@@ -42,6 +42,7 @@ struct GeneratedUI: View {
                             }
                         }
                     )
+                    .padding()
                 }
 
                 if let tooltip = hoverTooltip {
@@ -57,6 +58,7 @@ struct GeneratedUI: View {
                         .padding(.vertical, 4)
                         .glassEffect()
                         .transition(.opacity)
+                        .padding()
                 }
             }
 
@@ -108,8 +110,9 @@ struct GeneratedUI: View {
                 .keyboardShortcut(.return)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
+            .padding(.horizontal)
+            .padding(.bottom)
         }
-        .padding()
         .frame(minWidth: 500, minHeight: 400)
     }
 

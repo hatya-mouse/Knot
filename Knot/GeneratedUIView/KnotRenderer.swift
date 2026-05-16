@@ -84,14 +84,15 @@ struct KnotRenderer: View {
                         }
                         .padding()
                         .background(
-                            Color(NSColor.windowBackgroundColor).opacity(0.5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12).stroke(
-                                Color.secondary.opacity(0.2),
-                                lineWidth: 1
-                            )
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(
+                                            Color(.separatorColor),
+                                            lineWidth: 1
+                                        )
+                                )
                         )
                     default:
                         Text("Unknown: \(comp.component)")
