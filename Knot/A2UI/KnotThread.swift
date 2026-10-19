@@ -5,6 +5,7 @@
 //  Created by Kasatani Shuntaro on 2026/05/14.
 //
 
+import MCP
 import SwiftUI
 
 @Observable class KnotThread: Codable, Identifiable, Hashable {
@@ -68,6 +69,38 @@ import SwiftUI
         self.title = title
         self.components = components
         self.states = states
+
+        // Initialize the states
+        self.initStates()
+    }
+
+    /// Clean the states and add the states for each data bindings.
+    func initStates() {
+        var activePaths: Set<String> = []
+
+        // Search for used binding paths and add them
+        for component in components.values {
+            if case .binding(let path) = component.value {
+                activePaths.insert(path)
+                if states[path] == nil {
+                    states[path] = .string("")
+                }
+            }
+            if case .binding(let path) = component.text {
+                activePaths.insert(path)
+                if states[path] == nil {
+                    states[path] = .string("")
+                }
+            }
+        }
+
+        // Remove the unneeded paths
+        let currentKeys = Array(states.keys)
+        for key in currentKeys {
+            if !activePaths.contains(key) {
+                states.removeValue(forKey: key)
+            }
+        }
     }
 
     func binding<T>(for path: String, defaultValue: T) -> Binding<T> {
@@ -82,5 +115,12 @@ import SwiftUI
 
     func get<T>(for path: String, defaultValue: T) -> T {
         states[path]?.tryInto() ?? defaultValue
+    }
+
+    func toMCPValue(_ original: ValueOrBinding) -> Value? {
+        switch original {
+        case .binding(let binding): return states[binding]?.toMCPValue()
+        case .literal(let literal): return literal.toMCPValue()
+        }
     }
 }

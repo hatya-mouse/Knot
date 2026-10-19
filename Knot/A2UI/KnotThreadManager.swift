@@ -51,18 +51,14 @@ internal import UniformTypeIdentifiers
 
             // Write the file to the path
             try FileManager.default.createDirectory(
-                atPath: targetDirectory.path(),
+                at: targetDirectory,
                 withIntermediateDirectories: true
             )
             let targetPath = targetDirectory.appendingPathComponent(
                 "threads",
                 conformingTo: .json
             )
-            print(targetPath)
-            FileManager.default.createFile(
-                atPath: targetPath.path(),
-                contents: jsonData
-            )
+            try jsonData.write(to: targetPath, options: .atomic)
         } catch {
             print("Save Error:", error)
             throw error
@@ -84,9 +80,8 @@ internal import UniformTypeIdentifiers
             }
 
             // Load the threads from the path
-            if let jsonData = FileManager.default.contents(
-                atPath: targetPath.path()
-            ) {
+            if FileManager.default.fileExists(atPath: targetPath.path) {
+                let jsonData = try Data(contentsOf: targetPath)
                 self.threads = try JSONDecoder().decode(
                     [KnotThread].self,
                     from: jsonData

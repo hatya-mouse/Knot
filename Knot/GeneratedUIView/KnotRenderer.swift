@@ -12,6 +12,7 @@ struct KnotRenderer: View {
     let thread: KnotThread
     let rootID: String
     let onComponentHover: (String?) -> Void
+    let communicator: MCPAICommunicator
 
     var body: some View {
         renderComponent(id: rootID)
@@ -39,43 +40,60 @@ struct KnotRenderer: View {
                         Divider()
                     case "Text":
                         Text(
-                            self.resolveValue(comp.text, default: "" as String)
+                            resolveValue(comp.text, default: "" as String)
                         )
+                        .variant(comp.variant)
                     case "Button":
-                        Button(action: {}) {
+                        Button {
+                            Task {
+                                await communicator.triggerMCPTool(comp.id)
+                            }
+                        } label: {
                             if let child = comp.child {
                                 renderComponent(id: child)
                             }
                         }
-                        .hoverTooltip(closure: onComponentHover, "Action: \(comp.id)")
+                        .hoverTooltip(
+                            closure: onComponentHover,
+                            "Action: \(comp.id)"
+                        )
                     case "TextField":
                         TextField(
                             comp.label ?? "",
                             text: self.resolveBinding(comp.value, default: "")
                         )
-                        .hoverTooltip(closure: onComponentHover, "TextField: \(comp.id)")
+                        .hoverTooltip(
+                            closure: onComponentHover,
+                            "TextField: \(comp.id)"
+                        )
                     case "CheckBox":
                         Toggle(
                             comp.label ?? "",
-                            isOn: self.resolveBinding(
+                            isOn: resolveBinding(
                                 comp.value,
                                 default: false
                             )
                         )
                         .toggleStyle(.checkbox)
-                        .hoverTooltip(closure: onComponentHover, "CheckBox: \(comp.id)")
+                        .hoverTooltip(
+                            closure: onComponentHover,
+                            "CheckBox: \(comp.id)"
+                        )
                     case "Slider":
                         VStack(alignment: .leading) {
                             if let label = comp.label { Text(label) }
                             Slider(
-                                value: self.resolveBinding(
+                                value: resolveBinding(
                                     comp.value,
                                     default: 0
                                 ),
                                 in: (comp.min ?? 0)...(comp.max ?? 100)
                             )
                         }
-                        .hoverTooltip(closure: onComponentHover, "Slider: \(comp.id)")
+                        .hoverTooltip(
+                            closure: onComponentHover,
+                            "Slider: \(comp.id)"
+                        )
                     case "Card":
                         VStack(alignment: .leading, spacing: 12) {
                             if let child = comp.child {
@@ -85,7 +103,10 @@ struct KnotRenderer: View {
                         .padding()
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(NSColor.windowBackgroundColor).opacity(0.5))
+                                .fill(
+                                    Color(NSColor.windowBackgroundColor)
+                                        .opacity(0.5)
+                                )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
                                         .stroke(
@@ -109,7 +130,8 @@ struct KnotRenderer: View {
                 components: components,
                 thread: thread,
                 rootID: childID,
-                onComponentHover: onComponentHover
+                onComponentHover: onComponentHover,
+                communicator: communicator
             )
             if divider {
                 Divider().padding(.vertical, 4)
@@ -159,10 +181,28 @@ struct CardStyle: ViewModifier {
     }
 }
 
-private extension View {
-    func hoverTooltip(closure: @escaping (String?) -> Void, _ tooltip: String) -> some View {
+extension View {
+    fileprivate func hoverTooltip(
+        closure: @escaping (String?) -> Void,
+        _ tooltip: String
+    ) -> some View {
         onHover { isHovered in
             closure(isHovered ? tooltip : nil)
+        }
+    }
+}
+
+extension Text {
+    fileprivate func variant(_ variant: String?) -> some View {
+        switch variant {
+        case "h1": self.font(.largeTitle)
+        case "h2": self.font(.title)
+        case "h3": self.font(.title2)
+        case "h4": self.font(.title3)
+        case "h5": self.bold()
+        case "caption": self.font(.caption).foregroundStyle(.secondary)
+        case "body": self
+        default: self
         }
     }
 }

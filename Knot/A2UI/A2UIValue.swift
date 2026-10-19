@@ -5,6 +5,7 @@
 //  Created by Kasatani Shuntaro on 2026/05/13.
 //
 
+import MCP
 import SwiftUI
 
 enum ValueOrBinding: Codable, Hashable {
@@ -84,20 +85,33 @@ enum A2UIValue: Codable, Hashable {
             if T.self == Double.self { return d as? T }
             if T.self == Float.self { return Float(d) as? T }
             if T.self == Int.self { return Int(d) as? T }
+            if T.self == String.self { return String(d) as? T }
             return nil
-        case .bool(let b): return b as? T
+        case .bool(let b):
+            if T.self == Bool.self { return b as? T }
+            if T.self == String.self { return (b ? "true" : "false") as? T }
+            return nil
         }
     }
 
     /// Tries to create a new A2UIValue from the given raw value.
     static func tryFrom<T>(value: T) -> A2UIValue? {
         switch value {
-        case let value as String: return .string(value)
-        case let value as Int: return .number(Double(value))
-        case let value as Float: return .number(Double(value))
-        case let value as Double: return .number(Double(value))
-        case let value as Bool: return .bool(value)
-        default: return nil
+        case let value as String: .string(value)
+        case let value as Int: .number(Double(value))
+        case let value as Float: .number(Double(value))
+        case let value as Double: .number(Double(value))
+        case let value as Bool: .bool(value)
+        default: nil
+        }
+    }
+
+    /// Converts the value to MCP Value.
+    func toMCPValue() -> Value {
+        switch self {
+        case .string(let s): .string(s)
+        case .number(let d): .double(d)
+        case .bool(let b): .bool(b)
         }
     }
 }

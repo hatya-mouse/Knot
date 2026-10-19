@@ -58,6 +58,10 @@ struct GeminiProvider: LLMProvider {
                             ["type": "string"],
                         ],
                     ],
+                    "variant": [
+                        "type": "string",
+                        "enum": ["h1", "h2", "h3", "h4", "h5", "caption", "body"],
+                    ],
                     "min": ["type": "number"],
                     "max": ["type": "number"],
                     "children": [

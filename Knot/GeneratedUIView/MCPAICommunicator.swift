@@ -50,32 +50,7 @@ import SwiftUI
         guard let provider = provider else { return }
 
         isGenerating = true
-
-        let toolsContext = tools.map { tool in
-            "Tool: \(tool.name), Description: \(tool.description ?? ""), Args: \(tool.inputSchema)"
-        }.joined(separator: "\n")
-        let systemPrompt = """
-            1. Generate a UI written in JSON with the specific A2UI format based on the user's prompt.
-            2. The root UI must be either Card, Column or Row, and must be named "root".
-            3. For Buttons, use the same name as the name of the tools.
-            4. For sliders and text fields, use the same name as the tool arguments.
-            5. Do not change the name of the text.
-
-            Specific Constraints:
-            - Column and Row must have "children" property. Do not use "child" property for them, even if there is only one child.
-            - Card must have "child" property.
-            - Button has to have "child" property which specifies the ID of its label content, not "text" and so on.
-            - For Slider, CheckBox and TextField, use "value" property to specify the literal value or data binding.
-            - Note that you need to use data binding if you want the user to be able to change its value. If you use literal value, the user WILL NOT be able to change the value.
-            - You can create data binding by just specifying the custom path to the value. It does not need to be declared somewhere, but instead you can just write it and it'll be fine.
-            - "text" and "label" is just for displaying purpose. Use "id", which must be same as the tool's ID, to distinguish between components.
-
-            [Current UI]
-            \(thread.components)
-
-            [Available Tools]
-            \(toolsContext)
-            """
+        let systemPrompt = generateSystemPrompt()
 
         do {
             let result = try await provider.generateResponse(
@@ -88,9 +63,15 @@ import SwiftUI
                 from: result
             )
 
-            self.thread.components.removeAll()
-            for comp in components {
-                self.thread.components.updateValue(comp, forKey: comp.id)
+            await MainActor.run {
+                // Update the UI components
+                self.thread.components.removeAll()
+                for comp in components {
+                    self.thread.components[comp.id] = comp
+                }
+
+                // Initialize the states
+                self.thread.initStates()
             }
         } catch let error {
             print("Error: \(error.localizedDescription)")
@@ -126,6 +107,74 @@ import SwiftUI
         isGenerating = false
     }
 
+    func prefixSchema(_ schema: [String: Value], prefix: String) -> [String:
+        Value]
+    {
+        var prefixed: [String: Value] = [:]
+        for (argName, schema) in schema {
+            let prefixedName = "\(prefix)\(argName)"
+            prefixed[prefixedName] = schema
+        }
+        return prefixed
+    }
+
+    func generateSystemPrompt() -> String {
+        let toolsContext = tools.map { tool in
+            // Add the tool name as the prefix
+            var prefixedInputs: [String: Value] = [:]
+            var prefixedOutputs: [String: Value] = [:]
+            if let inputs = tool.inputSchema.objectValue {
+                prefixedInputs = prefixSchema(
+                    inputs,
+                    prefix: "\(tool.name)_input_"
+                )
+            }
+            if let outputs = tool.outputSchema?.objectValue {
+                prefixedOutputs = prefixSchema(
+                    outputs,
+                    prefix: "\(tool.name)_output_"
+                )
+            } else {
+                // Add an output named "value" if no output is specified.
+                prefixedOutputs = prefixSchema(
+                    ["value": .null],
+                    prefix: "\(tool.name)_output_"
+                )
+            }
+
+            return
+                "Tool: \(tool.name), Description: \(tool.description ?? ""), Inputs: \(prefixedInputs), Outputs: \(prefixedOutputs)"
+        }.joined(separator: "\n")
+
+        return """
+            1. Generate a UI written in JSON with the specific A2UI format based on the user's prompt.
+            2. The root UI must be either Card, Column or Row, and must be named "root".
+            3. For Buttons, use the exact same name as the target MCP tool name for its component ID.
+
+            Strict Data Binding Rules (CRITICAL):
+            4. For interactive input components (Slider, CheckBox, TextField), you MUST use data binding for their "value" property.
+               The binding path string MUST match the exact prefixed input key provided in the [Available Tools] section (e.g., "toolName_input_argumentName").
+               Example: "value": { "path": "get-sum_input_a" }
+
+            5. For output display components (Text), you MUST bind their text content to the corresponding output key using data binding.
+               The binding path string MUST match the exact prefixed output key provided in the [Available Tools] section (e.g., "toolName_output_resultKey").
+               Example: "text": { "path": "get-sum_output_value" }
+
+            Specific Constraints:
+            - Column and Row must have "children" property. Do not use "child" property for them, even if there is only one child.
+            - Card must have "child" property.
+            - Button has to have "child" property which specifies the ID of its label content component, not "text" or "label" directly on the button.
+            - Never use literal values for interactive components' value property, or the user will not be able to interact with it.
+            - You can create any data binding dynamically by just specifying the path string as guided above. It automatically registers in the app state.
+
+            [Current UI Status]
+            \(thread.components)
+
+            [Available Tools Specification]
+            \(toolsContext)
+            """
+    }
+
     /// Connects to the stdio transport and fetches the tools.
     func connectAll() async {
         // Get all the servers available
@@ -155,20 +204,74 @@ import SwiftUI
         }
     }
 
+    func triggerMCPTool(_ toolName: String) async {
+        var resolvedInputs: [String: Value] = [:]
+
+        // Get the tool properties to get the desired type of inputs
+        guard let tool = tools.first(where: { $0.name == toolName }) else {
+            return
+        }
+        let properties = tool.inputSchema.objectValue?["properties"]?
+            .objectValue
+
+        for (stateID, value) in thread.states {
+            // Check if the state ID begins with the tool name and _input_ prefix
+            if stateID.hasPrefix("\(toolName)_input_") {
+                // Remove the prefix and get the actual argument name
+                let originalKey = String(stateID.dropFirst(toolName.count + 7))
+                let rawValue = value.toMCPValue()
+
+                let argSchema = properties?[originalKey]?.objectValue
+                let expectedType = argSchema?["type"]?.stringValue
+
+                // Convert to the desired type
+                if let strValue = rawValue.stringValue {
+                    if expectedType == "number" {
+                        if let doubleVal = Double(strValue) {
+                            resolvedInputs[originalKey] = .double(doubleVal)
+                            continue
+                        }
+                    } else if expectedType == "integer" {
+                        if let intVal = Int(strValue) {
+                            resolvedInputs[originalKey] = .int(intVal)
+                            continue
+                        }
+                    }
+                }
+
+                resolvedInputs[originalKey] = rawValue
+            }
+        }
+
+        // Run the tool with the resolved inputs
+        await runTool(toolName, with: resolvedInputs)
+    }
+
     /// Runs the tools.
-    func runTool(name: String, args: [String: Value]) async {
+    func runTool(_ toolName: String, with inputs: [String: Value]) async {
         do {
             let (content, _) = try await client.callTool(
-                name: name,
-                arguments: args
+                name: toolName,
+                arguments: inputs
             )
-            // Parse the results and show on the UI
-            if let firstText = content.first(where: {
-                if case .text = $0 { return true }
-                return false
-            }) {
-                if case .text(let text, _, _) = firstText {
-                    self.lastResult = text
+            let parsedContent = content.toDictionary()
+
+            await MainActor.run {
+                // Parse the results and show on the UI
+                for stateID in thread.states.keys {
+                    // Check if the state ID begins with the tool name and _output_ prefix
+                    if stateID.hasPrefix("\(toolName)_output_") {
+                        // Remove the prefix and get the actual argument name
+                        let originalKey = String(
+                            stateID.dropFirst(toolName.count + 8)
+                        )
+                        // Get the value from the states
+                        if let newValue = A2UIValue.tryFrom(
+                            value: parsedContent[originalKey]
+                        ) {
+                            thread.states.updateValue(newValue, forKey: stateID)
+                        }
+                    }
                 }
             }
         } catch {

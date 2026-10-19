@@ -40,7 +40,8 @@ struct GeneratedUI: View {
                             withAnimation(.easeOut(duration: 0.1)) {
                                 self.hoverTooltip = tooltip
                             }
-                        }
+                        },
+                        communicator: communicator
                     )
                     .padding()
                 }
